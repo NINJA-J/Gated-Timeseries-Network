@@ -1,10 +1,10 @@
-from torch.nn import Module
-import torch
 from torch.nn import CrossEntropyLoss
+from torch.nn import Module
 
-class Myloss(Module):
+
+class MyLoss(Module):
     def __init__(self):
-        super(Myloss, self).__init__()
+        super(MyLoss, self).__init__()
         self.loss_function = CrossEntropyLoss()
 
     def forward(self, y_pre, y_true):

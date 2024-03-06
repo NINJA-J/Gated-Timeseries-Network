@@ -1,13 +1,14 @@
-from torch.utils.data import Dataset
-import torch
-import numpy as np
-from dtw import dtw
-import matplotlib.pyplot as plt
-import seaborn as sns
 import os
 
-plt.rcParams['font.sans-serif']=['SimHei'] #显示中文标签
-plt.rcParams['axes.unicode_minus']=False   #这两行需要手动设
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import torch
+from dtw import dtw
+from torch.utils.data import Dataset
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 这两行需要手动设
 
 from scipy.io import loadmat
 
@@ -118,18 +119,19 @@ class MyDataset(Dataset):
 
         return train_len, test_len, input, channel, output_len, train_dataset, train_label, test_dataset, test_label
 
+
 def heatMap_channel(matrix, file_name, EPOCH):
     test_data = matrix[0].detach().numpy()
     euclidean_norm = lambda x, y: np.abs(x - y)
     matrix_0 = np.ones((test_data.shape[1], test_data.shape[1]))
     matrix_1 = np.ones((test_data.shape[1], test_data.shape[1]))  # 相差度
     for i in range(test_data.shape[1]):
-            for j in range(test_data.shape[1]):
-                x = test_data[:, i]
-                y = test_data[:, j]
-                d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
-                matrix_0[i, j] = d
-                matrix_1[i, j] = np.mean((x - y) ** 2)
+        for j in range(test_data.shape[1]):
+            x = test_data[:, i]
+            y = test_data[:, j]
+            d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
+            matrix_0[i, j] = d
+            matrix_1[i, j] = np.mean((x - y) ** 2)
 
     sns.set()
     # f, ax = plt.subplots(figsize=(9, 6))
@@ -144,18 +146,19 @@ def heatMap_channel(matrix, file_name, EPOCH):
     plt.title('CHANNEL difference')
     plt.savefig(f'../heatmap_figure/{file_name}/channel difference EPOCH:{EPOCH}.jpg')
 
+
 def heatMap_input(matrix, file_name, EPOCH):
     test_data = matrix[0].detach().numpy()
     euclidean_norm = lambda x, y: np.abs(x - y)
     matrix_0 = np.ones((test_data.shape[0], test_data.shape[0]))  # DTW
     matrix_1 = np.ones((test_data.shape[0], test_data.shape[0]))  # 相差度
     for i in range(test_data.shape[0]):
-            for j in range(test_data.shape[0]):
-                x = test_data[i, :]
-                y = test_data[j, :]
-                d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
-                matrix_0[i, j] = d
-                matrix_1[i, j] = np.mean((x - y) ** 2)
+        for j in range(test_data.shape[0]):
+            x = test_data[i, :]
+            y = test_data[j, :]
+            d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
+            matrix_0[i, j] = d
+            matrix_1[i, j] = np.mean((x - y) ** 2)
 
     sns.set()
     # f, ax = plt.subplots(figsize=(9, 6))
@@ -169,6 +172,7 @@ def heatMap_input(matrix, file_name, EPOCH):
     sns.heatmap(matrix_1, annot=True)
     plt.title('INPUT difference')
     plt.savefig(f'../heatmap_figure/{file_name}/input difference EPOCH:{EPOCH}.jpg')
+
 
 def heatMap_score(matrix_input, matrix_channel, file_name, EPOCH):
     score_input = matrix_input[0].detach().numpy()
@@ -229,22 +233,23 @@ if __name__ == '__main__':
     matrix_2 = np.ones((test_data.shape[1], test_data.shape[1]))  # 相差度
     matrix_3 = np.ones((test_data.shape[1], test_data.shape[1]))  # 点成
     for i in range(test_data.shape[1]):
-            for j in range(test_data.shape[1]):
-                # x = test_data[i, :]
-                # y = test_data[j, :]
-                x = test_data[:, i]
-                y = test_data[:, j]
-                d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
-                matrix[i, j] = d
-                matrix_1[i, j] = np.sum(np.abs(x-y))
-                matrix_2[i, j] = np.mean((x - y) ** 2)
-                matrix_3[i, j] = float(x.dot(y))
+        for j in range(test_data.shape[1]):
+            # x = test_data[i, :]
+            # y = test_data[j, :]
+            x = test_data[:, i]
+            y = test_data[:, j]
+            d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=euclidean_norm)
+            matrix[i, j] = d
+            matrix_1[i, j] = np.sum(np.abs(x - y))
+            matrix_2[i, j] = np.mean((x - y) ** 2)
+            matrix_3[i, j] = float(x.dot(y))
 
     # print(matrix)
 
     import numpy as np
     import seaborn as sns
     import matplotlib.pyplot as plt
+
     sns.set()
     # np.random.seed(0)
     # uniform_data = np.random.rand(10, 12)

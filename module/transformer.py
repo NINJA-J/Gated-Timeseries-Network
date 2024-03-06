@@ -1,9 +1,11 @@
-from torch.nn import Module
-import torch
-from torch.nn import ModuleList
-from module.encoder import Encoder
 import math
+
+import torch
 import torch.nn.functional as F
+from torch.nn import Module
+from torch.nn import ModuleList
+
+from .encoder import Encoder
 
 
 class Transformer(Module):

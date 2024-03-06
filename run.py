@@ -11,11 +11,9 @@ from tqdm import tqdm
 import os
 
 from module.transformer import Transformer
-from module.loss import Myloss
+from module.loss import MyLoss
 from utils.random_seed import setup_seed
 from utils.visualization import result_visualization
-
-# from mytest.gather.main import draw
 
 setup_seed(30)  # 设置随机数种子
 reslut_figure_path = 'result_figure'  # 结果图像保存路径
@@ -33,18 +31,19 @@ reslut_figure_path = 'result_figure'  # 结果图像保存路径
 # path = 'E:\PyCharmWorkSpace\\dataset\\MTS_dataset\\ArabicDigits\\ArabicDigits.mat'  # lenth=6600  input=93 channel=13 output=10
 # path = 'E:\PyCharmWorkSpace\\dataset\\MTS_dataset\\PEMS\\PEMS.mat'
 # path = 'E:\PyCharmWorkSpace\\dataset\\MTS_dataset\\Wafer\\Wafer.mat'
-path = 'E:\PyCharmWorkSpace\dataset\\MTS_dataset\\WalkvsRun\\WalkvsRun.mat'
+# path = 'D:\\Data\\ArabicDigits\\ArabicDigits.mat'
+path = 'D:\\Data\\UWave\\UWave.mat'
 
 test_interval = 5  # 测试间隔 单位：epoch
 draw_key = 1  # 大于等于draw_key才会保存图像
 file_name = path.split('\\')[-1][0:path.split('\\')[-1].index('.')]  # 获得文件名字
 
 # 超参数设置
-EPOCH = 100
-BATCH_SIZE = 3
+EPOCH = 5#100
+BATCH_SIZE = 40
 LR = 1e-4
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # 选择设备 CPU or GPU
-print(f'use device: {DEVICE}')
+print(f'use device: {DEVICE}', torch.cuda.get_device_properties(DEVICE))
 
 d_model = 512
 d_hidden = 1024
@@ -78,7 +77,7 @@ print(f'Number of classes: {d_output}')
 net = Transformer(d_model=d_model, d_input=d_input, d_channel=d_channel, d_output=d_output, d_hidden=d_hidden,
                   q=q, v=v, h=h, N=N, dropout=dropout, pe=pe, mask=mask, device=DEVICE).to(DEVICE)
 # 创建loss函数 此处使用 交叉熵损失
-loss_function = Myloss()
+loss_function = MyLoss()
 if optimizer_name == 'Adagrad':
     optimizer = optim.Adagrad(net.parameters(), lr=LR)
 elif optimizer_name == 'Adam':
@@ -127,7 +126,8 @@ def train():
 
             loss = loss_function(y_pre, y.to(DEVICE))
 
-            print(f'Epoch:{index + 1}:\t\tloss:{loss.item()}')
+            if i % 100 == 0:
+                print(f'Epoch:{i + 1}:\t\tloss:{loss.item()}')
             loss_list.append(loss.item())
 
             loss.backward()
@@ -152,12 +152,12 @@ def train():
     time_cost = round((end - begin) / 60, 2)
 
     # 结果图
-    result_visualization(loss_list=loss_list, correct_on_test=correct_on_test, correct_on_train=correct_on_train,
-                         test_interval=test_interval,
-                         d_model=d_model, q=q, v=v, h=h, N=N, dropout=dropout, DATA_LEN=DATA_LEN, BATCH_SIZE=BATCH_SIZE,
-                         time_cost=time_cost, EPOCH=EPOCH, draw_key=draw_key, reslut_figure_path=reslut_figure_path,
-                         file_name=file_name,
-                         optimizer_name=optimizer_name, LR=LR, pe=pe, mask=mask)
+    # result_visualization(loss_list=loss_list, correct_on_test=correct_on_test, correct_on_train=correct_on_train,
+    #                      test_interval=test_interval,
+    #                      d_model=d_model, q=q, v=v, h=h, N=N, dropout=dropout, DATA_LEN=DATA_LEN, BATCH_SIZE=BATCH_SIZE,
+    #                      time_cost=time_cost, EPOCH=EPOCH, draw_key=draw_key, reslut_figure_path=reslut_figure_path,
+    #                      file_name=file_name,
+    #                      optimizer_name=optimizer_name, LR=LR, pe=pe, mask=mask)
 
 
 if __name__ == '__main__':

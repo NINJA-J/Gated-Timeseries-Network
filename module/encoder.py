@@ -1,8 +1,9 @@
-from torch.nn import Module
 import torch
+from torch.nn import Module
 
-from module.feedForward import FeedForward
-from module.multiHeadAttention import MultiHeadAttention
+from .feedForward import FeedForward
+from .multiHeadAttention import MultiHeadAttention
+
 
 class Encoder(Module):
     def __init__(self,
