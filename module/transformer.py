@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.nn import Module
 from torch.nn import ModuleList
 
+from utils.visualization import forward_timer
 from .encoder import Encoder
 
 
@@ -22,7 +23,7 @@ class Transformer(Module):
                  device: str,
                  dropout: float = 0.1,
                  pe: bool = False,
-                 mask: bool = False):
+                 mask: bool = False, ):
         super(Transformer, self).__init__()
 
         self.encoder_list_1 = ModuleList([Encoder(d_model=d_model,
@@ -52,6 +53,7 @@ class Transformer(Module):
         self._d_input = d_input
         self._d_model = d_model
 
+    @forward_timer
     def forward(self, x, stage):
         """
         前向传播

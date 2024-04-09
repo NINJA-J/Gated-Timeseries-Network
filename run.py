@@ -2,18 +2,20 @@
 # @Author  : SY.M
 # @FileName: run.py
 
-import torch
-from torch.utils.data import DataLoader
-from dataset_process.dataset_process import MyDataset
-import torch.optim as optim
-from time import time
-from tqdm import tqdm
 import os
+from time import time
 
-from module.transformer import Transformer
+import torch
+import torch.optim as optim
+import visdom
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import utils
+from dataset_process.dataset_process import MyDataset
 from module.loss import MyLoss
+from module.transformer import Transformer
 from utils.random_seed import setup_seed
-from utils.visualization import result_visualization
 
 setup_seed(30)  # 设置随机数种子
 reslut_figure_path = 'result_figure'  # 结果图像保存路径
@@ -36,14 +38,17 @@ path = 'D:\\Data\\UWave\\UWave.mat'
 
 test_interval = 5  # 测试间隔 单位：epoch
 draw_key = 1  # 大于等于draw_key才会保存图像
-file_name = path.split('\\')[-1][0:path.split('\\')[-1].index('.')]  # 获得文件名字
+file_name, _ = os.path.splitext(os.path.basename(path))  # 获得文件名字
 
 # 超参数设置
-EPOCH = 5#100
+EPOCH = 5  # 100
 BATCH_SIZE = 40
 LR = 1e-4
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # 选择设备 CPU or GPU
 print(f'use device: {DEVICE}', torch.cuda.get_device_properties(DEVICE))
+
+utils.env_name = f"{file_name} Batch {BATCH_SIZE} Epoch {EPOCH}"
+utils.vis = visdom.Visdom(env=utils.env_name, port=6543)
 
 d_model = 512
 d_hidden = 1024
@@ -119,8 +124,10 @@ def train():
     pbar = tqdm(total=EPOCH)
     begin = time()
     for index in range(EPOCH):
+        utils.current_stage, utils.current_epoch = "train", index
         for i, (x, y) in enumerate(train_dataloader):
             optimizer.zero_grad()
+            utils.current_i = i
 
             y_pre, _, _, _, _, _, _ = net(x.to(DEVICE), 'train')
 
@@ -135,6 +142,8 @@ def train():
             optimizer.step()
 
         if ((index + 1) % test_interval) == 0:
+            utils.current_stage = "test"
+
             current_accuracy = test(test_dataloader)
             test(train_dataloader, 'train_set')
             print(f'当前最大准确率\t测试集:{max(correct_on_test)}%\t 训练集:{max(correct_on_train)}%')

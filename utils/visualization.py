@@ -1,6 +1,43 @@
+import math
+import time
+from functools import wraps
+
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties as fp  # 1、引入FontProperties
-import math
+
+import utils
+
+
+def forward_timer(func):
+    times = [[]]
+    info = [-1, -1]
+    LAST_EPOCH = 0
+    LAST_I = 1
+
+    # global vis, env_name
+    @wraps(func)  # 保持原函数名不变
+    def wrapper(*args, **kwargs):
+        func_name = f"{utils.current_stage} - {func.__qualname__}"
+
+        start = time.time()
+        res = func(*args, **kwargs)
+        gap = time.time() - start
+
+        if info[LAST_EPOCH] != utils.current_epoch:
+            if info[LAST_EPOCH] != -1:
+                utils.vis.histogram(times[0], win=f"{func_name} Last 1", opts=dict(
+                    title=f"{func_name} Last", xlabel="Epoch Time/s"))
+            times[0] = [gap]
+            info[LAST_EPOCH] = utils.current_epoch
+        else:
+            times[0].append(gap)
+        if len(times[0]) > 1:
+            utils.vis.histogram(times[0], win=func_name, opts=dict(
+                title=func_name, xlabel="Epoch Time/s"))
+        return res
+
+    return wrapper
+
 
 def result_visualization(loss_list: list,
                          correct_on_test: list,
