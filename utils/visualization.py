@@ -1,39 +1,86 @@
+import json
 import math
+import re
 import time
 from functools import wraps
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.font_manager import FontProperties as fp  # 1、引入FontProperties
 
 import utils
 
 
-def forward_timer(func):
-    times = [[]]
-    info = [-1, -1]
-    LAST_EPOCH = 0
-    LAST_I = 1
+class Statistic:
+    def __init__(self):
+        self.map = {}
+        self.first = True
 
+    def update(self, name, value):
+        ctx = self.map.get(name)
+        if ctx is None:
+            ctx = [[]]
+            self.map[name] = ctx
+        ctx[-1].append(value)
+
+    def update_values(self, name, value):
+        ctx = self.map.get(name)
+        if ctx is None:
+            ctx = [[]]
+            self.map[name] = ctx
+        ctx[-1] += value
+
+    def update_iter(self):
+        for (k, v) in self.map.items():
+            if len(v[-1]) > 1 and not re.search("list\\.\\d+", k):
+                utils.vis.histogram(X=v[-1], win=f"{k}-hist", opts=dict(
+                    title=f"{k}.hist", xlabel="Epoch Time/us", ylabel="Histogram"))
+
+    def update_epoch(self):
+        if self.first:
+            self.first = False
+            ctx = self.map.get("train.transformer")
+            if ctx is not None:
+                max = np.max(ctx[-1])
+                mean = np.mean(ctx[-1])
+                ctx[-1] = [i if i != max else mean for i in ctx[-1]]
+        for (k, v) in self.map.items():
+            if len(v[-1]) > 0:
+                v.append([])
+            if not re.search("list\\.\\d+", k):
+                v = v[:-1]
+                xticksval = [i for i in range(len(v))]
+                legends = [f"Epoch {i}" for i in range(len(v))]
+                utils.vis.boxplot(np.transpose(v, (1, 0)), win=f"{k}.box", opts=dict(showfliers=False,
+                                                                                     legend=legends,
+                                                                                     title=f"{k}.box", xlabel="Epoch",
+                                                                                     ylabel="Time/us per Test",
+                                                                                     xtickvals=xticksval,
+                                                                                     xticklabels=xticksval))
+
+    def save(self, file_name):
+        with open(f'statistics/{file_name}.json', 'w') as f:
+            json.dump(self.map, f)
+
+    def clear(self):
+        self.map.clear()
+        self.first = True
+
+
+root_static = Statistic()
+
+
+def forward_timer(func, *arg_names):
     # global vis, env_name
     @wraps(func)  # 保持原函数名不变
-    def wrapper(*args, **kwargs):
-        func_name = f"{utils.current_stage} - {func.__qualname__}"
+    def wrapper(self, *args, **kwargs):
+        start = time.time_ns()
+        res = func(self, *args, **kwargs)
+        gap = (time.time_ns() - start) / 1000  # to microseconds
 
-        start = time.time()
-        res = func(*args, **kwargs)
-        gap = time.time() - start
-
-        if info[LAST_EPOCH] != utils.current_epoch:
-            if info[LAST_EPOCH] != -1:
-                utils.vis.histogram(times[0], win=f"{func_name} Last 1", opts=dict(
-                    title=f"{func_name} Last", xlabel="Epoch Time/s"))
-            times[0] = [gap]
-            info[LAST_EPOCH] = utils.current_epoch
-        else:
-            times[0].append(gap)
-        if len(times[0]) > 1:
-            utils.vis.histogram(times[0], win=func_name, opts=dict(
-                title=func_name, xlabel="Epoch Time/s"))
+        for name in arg_names:
+            func_name = f"{utils.current_stage}.{name}"
+            root_static.update(func_name, gap / utils.batch)
         return res
 
     return wrapper

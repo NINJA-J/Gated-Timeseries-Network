@@ -53,7 +53,7 @@ class MyDataset(Dataset):
         data = m[x4]
 
         data00 = data[0][0]
-        # print('data00.shape', data00.shape)  # ()  data00才到达数据的维度
+        # print('data00.shape', data00.shape)  # ()  data00才到达数据的维
 
         index_train = str(data.dtype).find('train\'')
         index_trainlabels = str(data.dtype).find('trainlabels')
@@ -67,18 +67,16 @@ class MyDataset(Dataset):
         index_testlabels = list.index(index_testlabels)
 
         # [('trainlabels', 'O'), ('train', 'O'), ('testlabels', 'O'), ('test', 'O')]  O 表示数据类型为 numpy.object
-        train_label = data00[index_trainlabels]
-        train_data = data00[index_train]
-        test_label = data00[index_testlabels]
-        test_data = data00[index_test]
-
-        train_label = train_label.squeeze()
-        train_data = train_data.squeeze()
-        test_label = test_label.squeeze()
-        test_data = test_data.squeeze()
+        train_label = data00[index_trainlabels].squeeze()
+        train_data = data00[index_train].squeeze()
+        test_label = data00[index_testlabels].squeeze()
+        test_data = data00[index_test].squeeze()
 
         train_len = train_data.shape[0]
         test_len = test_data.shape[0]
+        if train_len < test_len:
+            train_label, train_data, train_len, test_label, test_data, test_len = \
+                test_label, test_data, test_len, train_label, train_data, train_len
         output_len = len(tuple(set(train_label)))
 
         # 时间步最大值

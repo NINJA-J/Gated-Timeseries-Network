@@ -1,12 +1,8 @@
-import math
-
 import torch
 import torch.nn.functional as F
 from torch.nn import Module
-from torch.nn import ModuleList
 
-from utils.visualization import forward_timer
-from .encoder import Encoder
+from .encoder import EncoderList
 
 
 class Transformer(Module):
@@ -20,28 +16,16 @@ class Transformer(Module):
                  v: int,
                  h: int,
                  N: int,
-                 device: str,
                  dropout: float = 0.1,
                  pe: bool = False,
                  mask: bool = False, ):
         super(Transformer, self).__init__()
 
-        self.encoder_list_1 = ModuleList([Encoder(d_model=d_model,
-                                                  d_hidden=d_hidden,
-                                                  q=q,
-                                                  v=v,
-                                                  h=h,
-                                                  mask=mask,
-                                                  dropout=dropout,
-                                                  device=device) for _ in range(N)])
+        self.encoder_input = EncoderList(d_model=d_model, d_hidden=d_hidden, q=q, v=v, h=h, N=N,
+                                         mask=mask, dropout=dropout)
 
-        self.encoder_list_2 = ModuleList([Encoder(d_model=d_model,
-                                                  d_hidden=d_hidden,
-                                                  q=q,
-                                                  v=v,
-                                                  h=h,
-                                                  dropout=dropout,
-                                                  device=device) for _ in range(N)])
+        self.encoder_channel = EncoderList(d_model=d_model, d_hidden=d_hidden, q=q, v=v, h=h, N=N,
+                                           dropout=dropout)
 
         self.embedding_channel = torch.nn.Linear(d_channel, d_model)
         self.embedding_input = torch.nn.Linear(d_input, d_model)
@@ -53,7 +37,6 @@ class Transformer(Module):
         self._d_input = d_input
         self._d_model = d_model
 
-    @forward_timer
     def forward(self, x, stage):
         """
         前向传播
@@ -64,30 +47,26 @@ class Transformer(Module):
         # step-wise
         # score矩阵为 input， 默认加mask 和 pe
         encoding_1 = self.embedding_channel(x)
-        input_to_gather = encoding_1
 
-        if self.pe:
-            pe = torch.ones_like(encoding_1[0])
-            position = torch.arange(0, self._d_input).unsqueeze(-1)
-            temp = torch.Tensor(range(0, self._d_model, 2))
-            temp = temp * -(math.log(10000) / self._d_model)
-            temp = torch.exp(temp).unsqueeze(0)
-            temp = torch.matmul(position.float(), temp)  # shape:[input, d_model/2]
-            pe[:, 0::2] = torch.sin(temp)
-            pe[:, 1::2] = torch.cos(temp)
+        # if self.pe:
+        #     pe = torch.ones_like(encoding_1[0])
+        #     position = torch.arange(0, self._d_input).unsqueeze(-1)
+        #     temp = torch.Tensor(range(0, self._d_model, 2))
+        #     temp = temp * -(math.log(10000) / self._d_model)
+        #     temp = torch.exp(temp).unsqueeze(0)
+        #     temp = torch.matmul(position.float(), temp)  # shape:[input, d_model/2]
+        #     pe[:, 0::2] = torch.sin(temp)
+        #     pe[:, 1::2] = torch.cos(temp)
+        #
+        #     encoding_1 = encoding_1 + pe
 
-            encoding_1 = encoding_1 + pe
-
-        for encoder in self.encoder_list_1:
-            encoding_1, score_input = encoder(encoding_1, stage)
+        encoding_1, score_input = self.encoder_input(encoding_1, stage)
 
         # channel-wise
         # score矩阵为channel 默认不加mask和pe
         encoding_2 = self.embedding_input(x.transpose(-1, -2))
-        channel_to_gather = encoding_2
 
-        for encoder in self.encoder_list_2:
-            encoding_2, score_channel = encoder(encoding_2, stage)
+        encoding_2, score_channel = self.encoder_channel(encoding_2, stage)
 
         # 三维变二维
         encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)
@@ -97,7 +76,4 @@ class Transformer(Module):
         gate = F.softmax(self.gate(torch.cat([encoding_1, encoding_2], dim=-1)), dim=-1)
         encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
 
-        # 输出
-        output = self.output_linear(encoding)
-
-        return output, encoding, score_input, score_channel, input_to_gather, channel_to_gather, gate
+        return self.output_linear(encoding)
