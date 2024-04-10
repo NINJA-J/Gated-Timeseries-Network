@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.autograd.profiler import record_function
 from torch.nn import Module
 
 from .encoder import EncoderList
@@ -59,14 +60,15 @@ class Transformer(Module):
         #     pe[:, 1::2] = torch.cos(temp)
         #
         #     encoding_1 = encoding_1 + pe
-
-        encoding_1, score_input = self.encoder_input(encoding_1, stage)
+        with record_function("_train.e_input"):
+            encoding_1, score_input = self.encoder_input(encoding_1, stage)
 
         # channel-wise
         # score矩阵为channel 默认不加mask和pe
         encoding_2 = self.embedding_input(x.transpose(-1, -2))
 
-        encoding_2, score_channel = self.encoder_channel(encoding_2, stage)
+        with record_function("_train.e_channel"):
+            encoding_2, score_channel = self.encoder_channel(encoding_2, stage)
 
         # 三维变二维
         encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)

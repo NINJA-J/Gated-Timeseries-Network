@@ -1,3 +1,6 @@
 .idea
 .ipynb_checkpoints
 saved_model
+statistics
+*.exe
+*.zip

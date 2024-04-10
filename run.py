@@ -8,7 +8,11 @@ import re
 import torch
 import torch.optim as optim
 import visdom
+from torch._C._profiler import ProfilerActivity
+from torch.autograd.profiler import record_function
+from torch.autograd.profiler_util import FunctionEvent
 from torch.nn import CrossEntropyLoss
+from torch.profiler import profile
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -87,15 +91,13 @@ def train(path, BATCH_SIZE, d_model, EPOCH=10, LR=1e-4):
                       q=q, v=v, h=h, N=N, dropout=dropout, pe=pe, mask=mask).to(DEVICE)
     utils.vis.text(
         f"<span style='color: red; font-size: 48px;'>Running</span><br><pre>{net}</pre>".replace('\n', '<br>'),
-        win="net-info", opts=dict(title="Network Inforation"))
+        win="net-info", opts=dict(title="Network Information"))
     # print(net)
     for name, module in net.named_modules():
         if isinstance(module, (MultiHeadAttention, FeedForward)):
-            module.forward = forward_timer(module.forward, re.sub("list\\.\\d+", "list", name), name)
+            module.func_name = re.sub("list\\.\\d+", "list", f"_stat.{name}")
         if isinstance(module, EncoderList):
-            module.forward = forward_timer(module.forward, name)
-        if isinstance(module, Transformer):
-            module.forward = forward_timer(module.forward, "transformer")
+            module.func_name = f"_stat.{name}"
 
     # 创建loss函数 此处使用 交叉熵损失
     loss_function = MyLoss()
@@ -118,7 +120,21 @@ def train(path, BATCH_SIZE, d_model, EPOCH=10, LR=1e-4):
         for i, (x, y) in enumerate(train_dataloader):
             optimizer.zero_grad()
             utils.current_i = i
-            y_pre = net(x.to(DEVICE), 'train')
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
+                with record_function("_stat.transform"):
+                    y_pre = net(x.to(DEVICE), 'train')
+                prof.step()
+
+            for event in prof.events():
+                event: FunctionEvent = event
+                if not event.name.startswith("_stat."):
+                    continue
+                name = event.name[6:]
+                root_static.update(f"{name}.cpu", event.cuda_time_total)
+                root_static.update(f"{name}.gpu", event.cuda_time_total)
+                if name == "transform":
+                    root_static.update(f"GPU Memory", event.cuda_memory_usage)
+                    root_static.update(f"CPU Memory", event.cpu_memory_usage)
 
             loss = loss_function(y_pre, y.to(DEVICE))
             root_static.update_values("train.loss",
@@ -160,7 +176,7 @@ if __name__ == '__main__':
     tasks = [
         # {
         #     'path': ['D:\\Data\\UWave\\UWave.mat'],
-        #     'batch': [16, 32],
+        #     'batch': [16],
         #     'd_model': [128],
         # },
         {
@@ -178,10 +194,15 @@ if __name__ == '__main__':
             'batch': [16, 32, 64],
             'd_model': [128, 256],
         },
+        # {
+        #     'path': ['D:\\Data\\WalkvsRun\\WalkvsRun.mat'],
+        #     'batch': [16, 32, 64],
+        #     'd_model': [128, 256],
+        # },
     ]
     for t in tasks:
         for param in itertools.product(t.get('path'), t.get('batch', [16]), t.get('d_model', [128])):
             try:
-                train(*param)
+                train(*param, EPOCH=8)
             except Exception as e:
-                print(e)
+                raise e

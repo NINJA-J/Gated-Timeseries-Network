@@ -2,6 +2,7 @@ import math
 
 import torch
 import torch.nn.functional as F
+from torch.autograd.profiler import record_function
 from torch.nn import Module
 
 import utils
@@ -31,24 +32,25 @@ class MultiHeadAttention(Module):
         self.score = None
 
     def forward(self, x, stage):
-        Q = torch.cat(self.W_q(x).chunk(self._h, dim=-1), dim=0)
-        K = torch.cat(self.W_k(x).chunk(self._h, dim=-1), dim=0)
-        V = torch.cat(self.W_v(x).chunk(self._h, dim=-1), dim=0)
+        with record_function(self.func_name):
+            Q = torch.cat(self.W_q(x).chunk(self._h, dim=-1), dim=0)
+            K = torch.cat(self.W_k(x).chunk(self._h, dim=-1), dim=0)
+            V = torch.cat(self.W_v(x).chunk(self._h, dim=-1), dim=0)
 
-        score = torch.matmul(Q, K.transpose(-1, -2)) / math.sqrt(self._q)
-        self.score = score
+            score = torch.matmul(Q, K.transpose(-1, -2)) / math.sqrt(self._q)
+            self.score = score
 
-        if self.mask and stage == 'train':
-            mask = torch.ones_like(score[0]).to(utils.device)
-            mask = torch.tril(mask, diagonal=0)
-            score = torch.where(mask > 0, score, torch.Tensor([-2 ** 32 + 1]).expand_as(score[0]).to(utils.device))
+            if self.mask and stage == 'train':
+                mask = torch.ones_like(score[0]).to(utils.device)
+                mask = torch.tril(mask, diagonal=0)
+                score = torch.where(mask > 0, score, torch.Tensor([-2 ** 32 + 1]).expand_as(score[0]).to(utils.device))
 
-        score = F.softmax(score, dim=-1)
+            score = F.softmax(score, dim=-1)
 
-        attention = torch.matmul(score, V)
+            attention = torch.matmul(score, V)
 
-        attention_heads = torch.cat(attention.chunk(self._h, dim=0), dim=-1)
+            attention_heads = torch.cat(attention.chunk(self._h, dim=0), dim=-1)
 
-        self_attention = self.W_o(attention_heads)
+            self_attention = self.W_o(attention_heads)
 
-        return self_attention, self.score
+            return self_attention, self.score

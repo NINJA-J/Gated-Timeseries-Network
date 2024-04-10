@@ -33,8 +33,8 @@ class Statistic:
     def update_iter(self):
         for (k, v) in self.map.items():
             if len(v[-1]) > 1 and not re.search("list\\.\\d+", k):
-                utils.vis.histogram(X=v[-1], win=f"{k}-hist", opts=dict(
-                    title=f"{k}.hist", xlabel="Epoch Time/us", ylabel="Histogram"))
+                utils.vis.histogram(X=v[-1], win=f"{k}.hist", opts=dict(
+                    title=f"{k}", xlabel="Iter Time/us", ylabel="Histogram"))
 
     def update_epoch(self):
         if self.first:
@@ -53,7 +53,7 @@ class Statistic:
                 legends = [f"Epoch {i}" for i in range(len(v))]
                 utils.vis.boxplot(np.transpose(v, (1, 0)), win=f"{k}.box", opts=dict(showfliers=False,
                                                                                      legend=legends,
-                                                                                     title=f"{k}.box", xlabel="Epoch",
+                                                                                     title=f"{k}", xlabel="Epoch",
                                                                                      ylabel="Time/us per Test",
                                                                                      xtickvals=xticksval,
                                                                                      xticklabels=xticksval))
